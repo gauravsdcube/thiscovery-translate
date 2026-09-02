@@ -172,4 +172,68 @@ class SmokeController extends Controller
         }
         return ExitCode::OK;
     }
+
+    /** Translate first Space name/description (+ TSE welcome if settings exist). */
+    public function actionSpace(string $lang = 'cy')
+    {
+        $settings = ModuleSettings::loadSettings();
+        $this->stdout('siteTranslate=' . ($settings->siteTranslateEnabled ? '1' : '0') . "\n");
+        $this->stdout('contentTranslate=' . ($settings->contentTranslate ? '1' : '0') . "\n");
+        \Yii::$app->language = $lang;
+        $this->stdout("lang={$lang}\n");
+
+        $space = \humhub\modules\space\models\Space::find()->orderBy(['id' => SORT_ASC])->one();
+        if (!$space) {
+            $this->stderr("No spaces found\n");
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        $this->stdout("space={$space->id} guid={$space->guid}\n");
+        $nameBefore = (string)$space->name;
+        $descBefore = (string)$space->description;
+        $this->stdout('name_before=' . mb_substr($nameBefore, 0, 120) . "\n");
+        $this->stdout('desc_before=' . mb_substr($descBefore, 0, 120) . "\n");
+
+        $nameAfter = \humhub\modules\thiscoveryTranslate\services\SpaceHook::translateName($space);
+        $descAfter = \humhub\modules\thiscoveryTranslate\services\SpaceHook::translateDescription($space);
+        $decorated = \humhub\modules\thiscoveryTranslate\services\SpaceHook::decorateForDisplay($space);
+
+        $this->stdout('name_after=' . mb_substr($nameAfter, 0, 120) . "\n");
+        $this->stdout('desc_after=' . mb_substr($descAfter, 0, 120) . "\n");
+        $this->stdout('decorate_name=' . mb_substr((string)$decorated->name, 0, 120) . "\n");
+        $this->stdout('decorate_desc=' . mb_substr((string)$decorated->description, 0, 120) . "\n");
+        $this->stdout('name_changed=' . ($nameAfter !== $nameBefore ? 'yes' : 'no') . "\n");
+        $this->stdout('desc_changed=' . ($descAfter !== $descBefore ? 'yes' : 'no') . "\n");
+        $this->stdout('db_name_unchanged=' . ((string)$space->name === $nameBefore ? 'yes' : 'no') . "\n");
+
+        $tseClass = \humhub\modules\thiscoverySpaceExperience\models\SpaceExperienceSettings::class;
+        if (class_exists($tseClass)) {
+            $tse = $tseClass::find()->where(['space_id' => (int)$space->id])->one();
+            if ($tse) {
+                $sample = [
+                    'title' => (string)($tse->welcome_title ?: 'Welcome to ' . $space->name),
+                    'content' => (string)($tse->welcome_content ?: 'Sample welcome content for smoke test.'),
+                    'actions' => [
+                        ['label' => 'Start a discussion', 'url' => '#', 'style' => 'primary'],
+                        ['label' => 'View resources', 'url' => '#', 'style' => 'secondary'],
+                    ],
+                ];
+                $this->stdout('welcome_before_title=' . mb_substr($sample['title'], 0, 120) . "\n");
+                $this->stdout('welcome_before_content=' . mb_substr(strip_tags($sample['content']), 0, 120) . "\n");
+                $out = \humhub\modules\thiscoveryTranslate\services\SpaceExperienceHook::translateWelcome($space, $sample);
+                $this->stdout('welcome_after_title=' . mb_substr((string)($out['title'] ?? ''), 0, 120) . "\n");
+                $this->stdout('welcome_after_content=' . mb_substr(strip_tags((string)($out['content'] ?? '')), 0, 120) . "\n");
+                foreach (($out['actions'] ?? []) as $i => $action) {
+                    $this->stdout("welcome_action{$i}=" . ($action['label'] ?? '') . "\n");
+                }
+            } else {
+                $this->stdout("tse_settings=none (skipping welcome)\n");
+            }
+        } else {
+            $this->stdout("tse_module=unavailable (skipping welcome)\n");
+        }
+
+        return ExitCode::OK;
+    }
+
 }

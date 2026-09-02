@@ -8,15 +8,22 @@
 namespace humhub\modules\thiscoveryTranslate;
 
 use humhub\helpers\ControllerHelper;
+use humhub\helpers\Html as HhHtml;
 use humhub\libs\ParameterEvent;
 use humhub\modules\admin\permissions\ManageModules;
 use humhub\modules\admin\widgets\AdminMenu;
+use humhub\modules\content\widgets\ContainerProfileHeader;
 use humhub\modules\content\widgets\richtext\AbstractRichText;
+use humhub\modules\space\models\Space;
+use humhub\modules\space\widgets\Header as SpaceHeader;
+use humhub\modules\space\widgets\SpaceChooserItem;
+use humhub\modules\space\widgets\SpaceDirectoryCard;
 use humhub\modules\thiscoveryTranslate\assets\TranslateAsset;
 use humhub\modules\thiscoveryTranslate\models\ModuleSettings;
 use humhub\modules\thiscoveryTranslate\services\ContentTranslateService;
 use humhub\modules\thiscoveryTranslate\services\LanguageService;
 use humhub\modules\thiscoveryTranslate\services\LocaleMap;
+use humhub\modules\thiscoveryTranslate\services\SpaceHook;
 use humhub\modules\thiscoveryTranslate\widgets\LanguageSelector;
 use humhub\modules\ui\menu\MenuLink;
 use humhub\widgets\LanguageChooser;
@@ -229,7 +236,7 @@ class Events
         }
         /** @var AbstractRichText $richText */
         $richText = $event->sender;
-        if (!empty($richText->edit) || empty($richText->record)) {
+        if (!empty($richText->edit)) {
             return;
         }
         $text = (string)($event->parameters['output'] ?? '');
@@ -237,17 +244,124 @@ class Events
             return;
         }
         try {
-            $translated = (new ContentTranslateService())->translateForDisplay(
-                $text,
-                $richText->record,
-                'message'
-            );
+            $record = $richText->record ?? null;
+            if ($record instanceof Space) {
+                $about = trim((string)$record->about);
+                $desc = trim((string)$record->description);
+                if ($about !== '' && $text === $about) {
+                    $translated = SpaceHook::translateAbout($record);
+                } elseif ($desc !== '' && ($text === $desc || trim(strip_tags($text)) === trim(strip_tags($desc)))) {
+                    $translated = SpaceHook::translateDescription($record);
+                } else {
+                    $translated = (new ContentTranslateService())->translateField(
+                        'space',
+                        (int)$record->id,
+                        'richtext',
+                        $text,
+                        'space',
+                        'space'
+                    );
+                }
+            } elseif (!empty($record)) {
+                $translated = (new ContentTranslateService())->translateForDisplay(
+                    $text,
+                    $record,
+                    'message'
+                );
+            } else {
+                // Core space about page outputs RichText without a record.
+                $ctrl = Yii::$app->controller ?? null;
+                if (
+                    $ctrl instanceof \humhub\modules\space\controllers\SpaceController
+                    && isset($ctrl->action->id) && $ctrl->action->id === 'about'
+                    && isset($ctrl->contentContainer) && $ctrl->contentContainer instanceof Space
+                ) {
+                    $space = $ctrl->contentContainer;
+                    $about = trim((string)$space->about);
+                    $desc = trim((string)$space->description);
+                    if ($about !== '' && (trim(strip_tags($text)) === trim(strip_tags($about)) || $text === $about)) {
+                        $translated = SpaceHook::translateAbout($space);
+                    } elseif ($desc !== '') {
+                        $translated = SpaceHook::translateDescription($space);
+                    } else {
+                        return;
+                    }
+                } else {
+                    return;
+                }
+            }
             if ($translated !== '' && $translated !== $text) {
                 $event->parameters['output'] = $translated;
             }
         } catch (\Throwable $e) {
             Yii::warning('RichText translate failed: ' . $e->getMessage(), 'thiscovery-translate');
         }
+    }
+
+    /**
+     * Default HumHub space header — decorate name/description for display.
+     */
+    public static function onSpaceHeaderBeforeRun(WidgetEvent $event): void
+    {
+        if (!self::moduleActive() || !SpaceHook::enabled()) {
+            return;
+        }
+        /** @var SpaceHeader $widget */
+        $widget = $event->sender;
+        if (!$widget->space instanceof Space) {
+            return;
+        }
+        $widget->space = SpaceHook::decorateForDisplay($widget->space);
+    }
+
+    /**
+     * Profile header (space default view title/subtitle).
+     */
+    public static function onContainerProfileHeaderBeforeRun(WidgetEvent $event): void
+    {
+        if (!self::moduleActive() || !SpaceHook::enabled()) {
+            return;
+        }
+        /** @var ContainerProfileHeader $widget */
+        $widget = $event->sender;
+        if (!$widget->container instanceof Space) {
+            return;
+        }
+        $widget->container = SpaceHook::decorateForDisplay($widget->container);
+        $widget->title = HhHtml::encode($widget->container->getDisplayName());
+        $widget->subTitle = HhHtml::encode($widget->container->getDisplayNameSub());
+    }
+
+    /**
+     * Spaces directory cards — decorate name/description for display.
+     */
+    public static function onSpaceDirectoryCardBeforeRun(WidgetEvent $event): void
+    {
+        if (!self::moduleActive() || !SpaceHook::enabled()) {
+            return;
+        }
+        /** @var SpaceDirectoryCard $widget */
+        $widget = $event->sender;
+        if (!$widget->space instanceof Space) {
+            return;
+        }
+        $widget->space = SpaceHook::decorateForDisplay($widget->space);
+    }
+
+    /**
+     * Space chooser dropdown items.
+     */
+    public static function onSpaceChooserItemBeforeRun(WidgetEvent $event): void
+    {
+        if (!self::moduleActive() || !SpaceHook::enabled()) {
+            return;
+        }
+        /** @var SpaceChooserItem $widget */
+        $widget = $event->sender;
+        if (!$widget->space instanceof Space) {
+            return;
+        }
+        $widget->space = SpaceHook::decorateForDisplay($widget->space);
     }
 
     private static function moduleActive(): bool

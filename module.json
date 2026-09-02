@@ -3,7 +3,7 @@
   "name": "Thiscovery Translate",
   "description": "Semantic Amazon Translate with persistent store, translation memory, Forms pre-translation, and cost controls (eu-west-2 IAM).",
   "keywords": ["thiscovery", "translate", "i18n", "amazon", "aws", "language", "forms"],
-  "version": "2.0.0",
+  "version": "2.1.0",
   "humhub": {
     "minVersion": "1.18"
   },
