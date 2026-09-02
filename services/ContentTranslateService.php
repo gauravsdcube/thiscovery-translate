@@ -167,6 +167,40 @@ class ContentTranslateService
                 'module' => $short,
             ];
         }
+        // Space about/description via RichText with record
+        if (is_object($record) && $record instanceof \humhub\modules\space\models\Space && isset($record->id)) {
+            return [
+                'objectType' => 'space',
+                'objectId' => (int)$record->id,
+                'field' => $field !== '' ? $field : 'about',
+                'module' => 'space',
+            ];
+        }
+        // Wiki / similar with title+content style fields
+        if (
+            is_object($record)
+            && $record instanceof \humhub\modules\content\components\ContentActiveRecord
+            && isset($record->id)
+        ) {
+            $class = get_class($record);
+            $short = substr(strrchr($class, '\\') ?: $class, 1);
+            $useField = $field;
+            if ($useField === '' || $useField === 'message') {
+                if ($record->hasAttribute('title')) {
+                    $useField = 'title';
+                } elseif ($record->hasAttribute('description')) {
+                    $useField = 'description';
+                } else {
+                    $useField = 'content';
+                }
+            }
+            return [
+                'objectType' => strtolower($short),
+                'objectId' => (int)$record->id,
+                'field' => $useField,
+                'module' => $short,
+            ];
+        }
         return null;
     }
 }

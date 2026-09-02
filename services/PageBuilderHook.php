@@ -84,6 +84,69 @@ class PageBuilderHook
         }
     }
 
+    /**
+     * Translate page chrome (title, summary, category, top menu label) for display.
+     *
+     * @return array{title:string,summary:string,category:string,top_menu_label:string}
+     */
+    public static function translatePageMeta($page): array
+    {
+        $title = is_object($page) ? (string)($page->title ?? '') : '';
+        $summary = is_object($page) ? (string)($page->summary ?? '') : '';
+        $category = is_object($page) ? (string)($page->category ?? '') : '';
+        $topLabel = is_object($page) ? (string)($page->top_menu_label ?? '') : '';
+        $pageId = is_object($page) && isset($page->id) ? (int)$page->id : 0;
+
+        if (!self::enabled() || $pageId < 1) {
+            return [
+                'title' => $title,
+                'summary' => $summary,
+                'category' => $category,
+                'top_menu_label' => $topLabel,
+            ];
+        }
+        try {
+            if ($title !== '') {
+                $title = self::svc()->translateField('engagement_page', $pageId, 'title', $title, 'page_builder');
+            }
+            if (trim(strip_tags($summary)) !== '') {
+                $summary = self::svc()->translateField('engagement_page', $pageId, 'summary', $summary, 'page_builder');
+            }
+            if ($category !== '') {
+                $category = self::svc()->translateField('engagement_page', $pageId, 'category', $category, 'page_builder');
+            }
+            if ($topLabel !== '') {
+                $topLabel = NavigationHook::translateLabel('engagement_page.' . $pageId . '.top_menu', $topLabel);
+            } elseif ($title !== '') {
+                $topLabel = $title;
+            }
+            return [
+                'title' => $title,
+                'summary' => $summary,
+                'category' => $category,
+                'top_menu_label' => $topLabel,
+            ];
+        } catch (\Throwable $e) {
+            Yii::warning('PageBuilderHook meta failed: ' . $e->getMessage(), 'thiscovery-translate');
+            return [
+                'title' => $title,
+                'summary' => $summary,
+                'category' => $category,
+                'top_menu_label' => $topLabel !== '' ? $topLabel : $title,
+            ];
+        }
+    }
+
+    public static function translateTopMenuLabel($page): string
+    {
+        $meta = self::translatePageMeta($page);
+        $label = trim($meta['top_menu_label'] ?? '');
+        if ($label !== '') {
+            return $label;
+        }
+        return trim($meta['title'] ?? '');
+    }
+
     private static function enabled(): bool
     {
         try {

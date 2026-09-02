@@ -25,6 +25,22 @@ php protected/yii thiscovery-translate/accept
 
 Enable under **Admin → Modules → Thiscovery Translate**. See `docs/ARCHITECTURE.md` and `docs/CHANGELOG.md`.
 
+
+## Data migration (instances)
+
+Export translation rows, translation memory, terminology, and non-secret module settings (never usage / secrets):
+
+```bash
+php protected/yii thiscovery-translate/export/data
+php protected/yii thiscovery-translate/export/data /tmp/tt-export.json --forms=1
+php protected/yii thiscovery-translate/import/data /tmp/tt-export.json
+php protected/yii thiscovery-translate/import/data /tmp/tt-export.json --settings=1
+```
+
+Default export path: `@runtime/thiscovery-translate-export-YYYYMMDD-HHMMSS.json`.
+
+**Caveat:** object-field rows key on `object_id` — IDs must match on the target instance. Translation memory reuses by `source_hash` and is safe to share across instances even when object IDs differ.
+
 ## License
 
 AGPL-3.0-or-later. Copyright (c) 2026 D Cube Consulting.
