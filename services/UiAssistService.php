@@ -69,9 +69,10 @@ class UiAssistService
             $targetAmz = LocaleMap::toAmazon($targetLanguage);
             $protector = new ContentProtector();
             $protected = $protector->protect($text);
-            $out = $this->provider->translate($protected, $sourceAmz, $targetAmz, 'text');
+            $format = $protector->hasTokens() ? 'html' : 'text';
+            $out = $this->provider->translate($protected, $sourceAmz, $targetAmz, $format);
             $out = $protector->restore($out);
-            if (trim($out) === '') {
+            if (trim($out) === '' || ContentProtector::looksLeaked($out)) {
                 return $text;
             }
             $this->memory->remember($text, $out, $sourceLanguage, $targetLanguage, 'navigation', 'amazon');

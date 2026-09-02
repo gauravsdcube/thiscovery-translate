@@ -80,19 +80,33 @@ class TranslationResolver
         $objectRow = $this->findObjectTranslation($objectType, $objectId, $field, $targetAmz, $sourceHash, false);
         if ($objectRow && $objectRow->translation_status !== Translation::STATUS_NEEDS_UPDATE
             && $objectRow->translation_status !== Translation::STATUS_FAILED) {
-            $this->cost->record('object', true, 0, $sourceLanguage, $targetLanguage, 'none', 'lookup', $module, $objectType);
-            return ['text' => (string)$objectRow->translated_text, 'method' => (string)$objectRow->translation_method, 'from_cache' => true];
+            $cached = (string)$objectRow->translated_text;
+            if (ContentProtector::looksLeaked($cached) && !(bool)$objectRow->is_locked) {
+                // Drop bad cache so we can retranslate.
+                try {
+                    $objectRow->delete();
+                } catch (\Throwable $e) {
+                    // continue to Amazon / TM
+                }
+            } else {
+                $this->cost->record('object', true, 0, $sourceLanguage, $targetLanguage, 'none', 'lookup', $module, $objectType);
+                return ['text' => $cached, 'method' => (string)$objectRow->translation_method, 'from_cache' => true];
+            }
         }
 
         // 3) Translation memory
         $mem = $this->memory->find($text, $sourceLanguage, $targetLanguage, $context);
         if ($mem !== null) {
-            $this->persistObject($objectType, $objectId, $field, $sourceLanguage, $targetLanguage, $text, $sourceHash, $mem, Translation::METHOD_MEMORY, $context);
-            $this->cost->record('memory', true, 0, $sourceLanguage, $targetLanguage, 'none', 'lookup', $module, $objectType);
-            return ['text' => $mem, 'method' => Translation::METHOD_MEMORY, 'from_cache' => true];
+            if (ContentProtector::looksLeaked($mem)) {
+                $mem = null;
+            } else {
+                $this->persistObject($objectType, $objectId, $field, $sourceLanguage, $targetLanguage, $text, $sourceHash, $mem, Translation::METHOD_MEMORY, $context);
+                $this->cost->record('memory', true, 0, $sourceLanguage, $targetLanguage, 'none', 'lookup', $module, $objectType);
+                return ['text' => $mem, 'method' => Translation::METHOD_MEMORY, 'from_cache' => true];
+            }
         }
 
-        if (!$allowAmazon) {
+        if ($mem === null && !$allowAmazon) {
             return ['text' => $text, 'method' => 'source', 'from_cache' => true];
         }
 
@@ -119,13 +133,19 @@ class TranslationResolver
         try {
             $protected = $this->protector->protect($text);
             $protected = $this->protector->protectTerms($protected, $this->terminology->doNotTranslateTerms());
-            // Prefer text when we injected ASCII placeholders; html only for real HTML sources.
-            $format = (!$this->protector->hasTokens() && $this->looksLikeHtml($text)) ? 'html' : 'text';
+            // Always HTML when markers present — translate="no" spans must not go through text mode.
+            $format = ($this->protector->hasTokens() || $this->looksLikeHtml($text)) ? 'html' : 'text';
             $translated = $this->provider->translate($protected, $sourceAmz, $targetAmz, $format);
             $translated = $this->protector->restore($translated);
             $translated = $this->terminology->applyPreferred($translated, $targetLanguage);
             if (trim($translated) === '') {
                 $translated = $text;
+            }
+            // Never persist leaked protector markers (old ZZTT… or data-tth spans).
+            if (ContentProtector::looksLeaked($translated)) {
+                Yii::warning('Translation leaked protector tokens; returning source and not caching.', 'thiscovery-translate');
+                $this->cost->record('failed', false, mb_strlen($text), $sourceLanguage, $targetLanguage, 'amazon', 'leak', $module, $objectType);
+                return ['text' => $text, 'method' => 'failed', 'from_cache' => false];
             }
             $this->persistObject($objectType, $objectId, $field, $sourceLanguage, $targetLanguage, $text, $sourceHash, $translated, Translation::METHOD_AMAZON, $context);
             $this->memory->remember($text, $translated, $sourceLanguage, $targetLanguage, $context, Translation::METHOD_AMAZON);

@@ -27,11 +27,19 @@ class AcceptController extends Controller
         $p = new ContentProtector();
         $src = 'Hi {x} https://a.test uuid 550e8400-e29b-41d4-a716-446655440000';
         $mid = $p->protect($src);
-        if (str_contains($mid, 'https://') || str_contains($mid, '{x}') || $p->restore($mid) !== $src) {
-            $this->stderr("FAIL protector restore\n", Console::FG_RED);
+        // Markers must be HTML translate=no spans (data-tth), not legacy ZZTT…ZZ tokens.
+        if (
+            str_contains($mid, 'https://')
+            || str_contains($mid, '{x}')
+            || !str_contains($mid, 'data-tth=')
+            || !str_contains($mid, 'translate="no"')
+            || str_contains($mid, 'ZZTT')
+            || $p->restore($mid) !== $src
+        ) {
+            $this->stderr("FAIL protector (expect data-tth spans, roundtrip)\n", Console::FG_RED);
             $failed++;
         } else {
-            $this->stdout("OK protector\n", Console::FG_GREEN);
+            $this->stdout("OK protector (data-tth spans)\n", Console::FG_GREEN);
         }
 
         $settings = ModuleSettings::loadSettings();

@@ -2,6 +2,12 @@
 
 All notable changes to this module are documented in this file.
 
+## 2.1.1 (September 2, 2026)
+
+- Fix: protector tokens no longer leak into Hindi/page-builder (HTML translate=no spans)
+- Enh: language + leaked filters on Translations and Memory
+- Enh: Maintenance “Purge leaked placeholders”
+
 ## 2.1.0 (September 2, 2026)
 
 - Enh: Console export/import for translation store, memory, and terminology (`thiscovery-translate/export/data`, `thiscovery-translate/import/data`); optional `--forms=1` for form i18n overlays and `--settings=1` on import for safe module settings

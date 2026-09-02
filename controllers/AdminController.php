@@ -15,6 +15,7 @@ use humhub\modules\thiscoveryTranslate\models\TranslationMemoryEntry;
 use humhub\modules\thiscoveryTranslate\models\TranslationTerminology;
 use humhub\modules\thiscoveryTranslate\models\TranslationUsage;
 use humhub\modules\thiscoveryTranslate\services\AmazonTranslateProvider;
+use humhub\modules\thiscoveryTranslate\services\ContentProtector;
 use humhub\modules\thiscoveryTranslate\services\CostTracker;
 use humhub\modules\thiscoveryTranslate\services\LocaleMap;
 use Yii;
@@ -123,14 +124,152 @@ class AdminController extends Controller
 
     public function actionMemory()
     {
+        $req = Yii::$app->request;
+        $sourceLang = trim((string)$req->get('source_language', ''));
+        $targetLang = trim((string)$req->get('target_language', ''));
+        $q = trim((string)$req->get('q', ''));
+        $leaked = (string)$req->get('leaked', '') === '1';
+
+        $query = TranslationMemoryEntry::find()->orderBy(['usage_count' => SORT_DESC, 'updated_at' => SORT_DESC]);
+        if ($sourceLang !== '') {
+            $query->andWhere(['source_language' => LocaleMap::toAmazon($sourceLang)]);
+        }
+        if ($targetLang !== '') {
+            $query->andWhere(['target_language' => LocaleMap::toAmazon($targetLang)]);
+        }
+        if ($q !== '') {
+            $query->andWhere([
+                'or',
+                ['like', 'source_text', $q],
+                ['like', 'translated_text', $q],
+                ['like', 'context', $q],
+            ]);
+        }
+        if ($leaked) {
+            $query->andWhere(['or',
+                ['like', 'translated_text', 'ZZTT'],
+                ['like', 'translated_text', 'ZTT'],
+                ['like', 'translated_text', 'data-tth'],
+            ]);
+        }
+
         $provider = new ActiveDataProvider([
-            'query' => TranslationMemoryEntry::find()->orderBy(['usage_count' => SORT_DESC, 'updated_at' => SORT_DESC]),
+            'query' => $query,
             'pagination' => ['pageSize' => 50],
         ]);
         return $this->render('memory', [
             'provider' => $provider,
             'activeTab' => 'memory',
+            'filterSource' => $sourceLang,
+            'filterTarget' => $targetLang,
+            'filterQ' => $q,
+            'filterLeaked' => $leaked,
+            'languageOptions' => $this->filterLanguageOptions(),
         ]);
+    }
+
+    public function actionTranslations()
+    {
+        $req = Yii::$app->request;
+        $sourceLang = trim((string)$req->get('source_language', ''));
+        $targetLang = trim((string)$req->get('target_language', ''));
+        $q = trim((string)$req->get('q', ''));
+        $leaked = (string)$req->get('leaked', '') === '1';
+        $objectType = trim((string)$req->get('object_type', ''));
+
+        $query = Translation::find()->orderBy(['updated_at' => SORT_DESC]);
+        if ($sourceLang !== '') {
+            $query->andWhere(['source_language' => LocaleMap::toAmazon($sourceLang)]);
+        }
+        if ($targetLang !== '') {
+            $query->andWhere(['target_language' => LocaleMap::toAmazon($targetLang)]);
+        }
+        if ($objectType !== '') {
+            $query->andWhere(['object_type' => $objectType]);
+        }
+        if ($q !== '') {
+            $query->andWhere([
+                'or',
+                ['like', 'source_text', $q],
+                ['like', 'translated_text', $q],
+                ['like', 'field', $q],
+                ['like', 'object_id', $q],
+            ]);
+        }
+        if ($leaked) {
+            $query->andWhere(['or',
+                ['like', 'translated_text', 'ZZTT'],
+                ['like', 'translated_text', 'ZTT'],
+                ['like', 'translated_text', 'data-tth'],
+            ]);
+        }
+
+        $provider = new ActiveDataProvider([
+            'query' => $query,
+            'pagination' => ['pageSize' => 50],
+        ]);
+        return $this->render('translations', [
+            'provider' => $provider,
+            'activeTab' => 'translations',
+            'filterSource' => $sourceLang,
+            'filterTarget' => $targetLang,
+            'filterQ' => $q,
+            'filterLeaked' => $leaked,
+            'filterObjectType' => $objectType,
+            'languageOptions' => $this->filterLanguageOptions(),
+            'objectTypeOptions' => Translation::find()->select('object_type')->distinct()->orderBy(['object_type' => SORT_ASC])->column(),
+        ]);
+    }
+
+    public function actionPurgeLeaked()
+    {
+        $this->forcePostRequest();
+        $nTrans = 0;
+        $nMem = 0;
+        foreach (Translation::find()->each(100) as $row) {
+            /** @var Translation $row */
+            if ($row->is_locked || $row->is_manual) {
+                continue;
+            }
+            if (ContentProtector::looksLeaked((string)$row->translated_text)) {
+                $row->delete();
+                $nTrans++;
+            }
+        }
+        foreach (TranslationMemoryEntry::find()->each(100) as $row) {
+            /** @var TranslationMemoryEntry $row */
+            if ($row->is_verified) {
+                continue;
+            }
+            if (ContentProtector::looksLeaked((string)$row->translated_text)) {
+                $row->delete();
+                $nMem++;
+            }
+        }
+        $this->view->success(Yii::t('ThiscoveryTranslateModule.base', 'Purged {t} leaked translations and {m} translation-memory rows. Reload affected pages to regenerate.', [
+            't' => $nTrans,
+            'm' => $nMem,
+        ]));
+        return $this->redirect(['maintenance']);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function filterLanguageOptions(): array
+    {
+        $settings = ModuleSettings::loadSettings();
+        $opts = ['' => Yii::t('ThiscoveryTranslateModule.base', 'All languages')];
+        foreach ($settings->availableLanguages as $code) {
+            $opts[$code] = (LocaleMap::labels()[$code] ?? $code) . ' (' . $code . ')';
+        }
+        // Also include Amazon codes already present in DB so filters work for historical rows.
+        foreach (['en', 'hi', 'cy', 'fr', 'pa', 'gu', 'bn'] as $code) {
+            if (!isset($opts[$code])) {
+                $opts[$code] = $code;
+            }
+        }
+        return $opts;
     }
 
     public function actionMemoryVerify($id)
@@ -144,18 +283,6 @@ class AdminController extends Controller
             $this->view->success(Yii::t('ThiscoveryTranslateModule.base', 'Translation memory entry verified.'));
         }
         return $this->redirect(['memory']);
-    }
-
-    public function actionTranslations()
-    {
-        $provider = new ActiveDataProvider([
-            'query' => Translation::find()->orderBy(['updated_at' => SORT_DESC]),
-            'pagination' => ['pageSize' => 50],
-        ]);
-        return $this->render('translations', [
-            'provider' => $provider,
-            'activeTab' => 'translations',
-        ]);
     }
 
     public function actionTranslationLock($id)

@@ -31,6 +31,17 @@ use yii\helpers\Url;
 </div>
 <p>
     <?= Html::a(
+        Yii::t('ThiscoveryTranslateModule.base', 'Purge leaked placeholders (ZZTT / ZTT)'),
+        Url::to(['purge-leaked']),
+        [
+            'class' => 'btn btn-danger',
+            'data-method' => 'POST',
+            'data-confirm' => Yii::t('ThiscoveryTranslateModule.base', 'Delete unlocked translations and unverified TM rows that still contain protector placeholders? Pages will retranslate on next view.'),
+        ]
+    ) ?>
+</p>
+<p>
+    <?= Html::a(
         Yii::t('ThiscoveryTranslateModule.base', 'Clear unlocked machine translations'),
         Url::to(['clear-machine']),
         [
