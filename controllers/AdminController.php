@@ -226,11 +226,10 @@ class AdminController extends Controller
         $this->forcePostRequest();
         $nTrans = 0;
         $nMem = 0;
+        $nForms = 0;
         foreach (Translation::find()->each(100) as $row) {
             /** @var Translation $row */
-            if ($row->is_locked || $row->is_manual) {
-                continue;
-            }
+            // Locked/manual rows that still contain protector placeholders are corrupt — delete so they regenerate.
             if (ContentProtector::looksLeaked((string)$row->translated_text)) {
                 $row->delete();
                 $nTrans++;
@@ -238,17 +237,39 @@ class AdminController extends Controller
         }
         foreach (TranslationMemoryEntry::find()->each(100) as $row) {
             /** @var TranslationMemoryEntry $row */
-            if ($row->is_verified) {
-                continue;
-            }
             if (ContentProtector::looksLeaked((string)$row->translated_text)) {
                 $row->delete();
                 $nMem++;
             }
         }
-        $this->view->success(Yii::t('ThiscoveryTranslateModule.base', 'Purged {t} leaked translations and {m} translation-memory rows. Reload affected pages to regenerate.', [
+        if (class_exists(\humhub\modules\thiscoveryForms\models\FormI18n::class)) {
+            foreach (\humhub\modules\thiscoveryForms\models\FormI18n::find()->each(100) as $row) {
+                $blob = implode("\n", [
+                    (string)$row->title,
+                    (string)$row->description,
+                    (string)$row->thank_you_content,
+                ]);
+                if (ContentProtector::looksLeaked($blob)) {
+                    $row->delete();
+                    $nForms++;
+                }
+            }
+            foreach (\humhub\modules\thiscoveryForms\models\FormFieldI18n::find()->each(100) as $row) {
+                $blob = implode("\n", [
+                    (string)$row->label,
+                    (string)$row->help_text,
+                    (string)$row->options_json,
+                ]);
+                if (ContentProtector::looksLeaked($blob)) {
+                    $row->delete();
+                    $nForms++;
+                }
+            }
+        }
+        $this->view->success(Yii::t('ThiscoveryTranslateModule.base', 'Purged {t} leaked translations, {m} translation-memory rows, and {f} form i18n rows. Reload affected pages to regenerate.', [
             't' => $nTrans,
             'm' => $nMem,
+            'f' => $nForms,
         ]));
         return $this->redirect(['maintenance']);
     }

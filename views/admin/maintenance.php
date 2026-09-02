@@ -27,7 +27,7 @@ use humhub\helpers\Html;
 use yii\helpers\Url;
 ?>
 <div class="alert alert-warning">
-    <?= Yii::t('ThiscoveryTranslateModule.base', 'Dangerous bulk actions require confirmation and never overwrite locked human translations.') ?>
+    <?= Yii::t('ThiscoveryTranslateModule.base', 'Dangerous bulk actions require confirmation. Leaked locked/manual rows are deleted because they are corrupt.') ?>
 </div>
 <p>
     <?= Html::a(
@@ -36,7 +36,7 @@ use yii\helpers\Url;
         [
             'class' => 'btn btn-danger',
             'data-method' => 'POST',
-            'data-confirm' => Yii::t('ThiscoveryTranslateModule.base', 'Delete unlocked translations and unverified TM rows that still contain protector placeholders? Pages will retranslate on next view.'),
+            'data-confirm' => Yii::t('ThiscoveryTranslateModule.base', 'Delete translations (including locked/manual if leaked), TM rows, and form i18n overlays that still contain protector placeholders? Pages will retranslate on next view.'),
         ]
     ) ?>
 </p>

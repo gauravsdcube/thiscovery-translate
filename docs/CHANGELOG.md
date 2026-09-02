@@ -2,6 +2,10 @@
 
 All notable changes to this module are documented in this file.
 
+## 2.1.2 (September 2, 2026)
+
+- Fix: Maintenance purge-leaked also removes locked/manual store rows and form i18n overlays that still contain ZZTT/ZTT/data-tth leaks
+
 ## 2.1.1 (September 2, 2026)
 
 - Fix: protector tokens no longer leak into Hindi/page-builder (HTML translate=no spans)
