@@ -4,6 +4,8 @@ All notable changes to this module are documented in this file.
 
 ## 2.1.2 (September 2, 2026)
 
+- Enh: Admin Export / Import UI (`/thiscovery-translate/admin/transfer`) for JSON download/upload
+- Refactor: shared `TranslationTransferService` used by admin and CLI export/import
 - Fix: Maintenance purge-leaked also removes locked/manual store rows and form i18n overlays that still contain ZZTT/ZTT/data-tth leaks
 
 ## 2.1.1 (September 2, 2026)

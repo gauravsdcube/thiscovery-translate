@@ -16,6 +16,7 @@ $tabs = [
     'memory' => ['label' => Yii::t('ThiscoveryTranslateModule.base', 'Translation Memory'), 'url' => ['/thiscovery-translate/admin/memory']],
     'translations' => ['label' => Yii::t('ThiscoveryTranslateModule.base', 'Translations'), 'url' => ['/thiscovery-translate/admin/translations']],
     'usage' => ['label' => Yii::t('ThiscoveryTranslateModule.base', 'Usage'), 'url' => ['/thiscovery-translate/admin/usage']],
+    'transfer' => ['label' => Yii::t('ThiscoveryTranslateModule.base', 'Export / Import'), 'url' => ['/thiscovery-translate/admin/transfer']],
     'maintenance' => ['label' => Yii::t('ThiscoveryTranslateModule.base', 'Maintenance'), 'url' => ['/thiscovery-translate/admin/maintenance']],
     'help' => ['label' => Yii::t('ThiscoveryTranslateModule.base', 'Help'), 'url' => ['/thiscovery-translate/admin/help']],
 ];

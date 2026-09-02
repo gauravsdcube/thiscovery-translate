@@ -52,6 +52,15 @@ $this->title = Yii::t('ThiscoveryTranslateModule.base', 'Thiscovery Translate �
                 <?= Yii::t('ThiscoveryTranslateModule.base', 'Calls use the EC2 instance IAM role in the configured region (default eu-west-2). Use “Test Amazon Translate” on Settings to verify access.') ?>
             </p>
 
+
+            <h3><?= Yii::t('ThiscoveryTranslateModule.base', 'Moving data between instances') ?></h3>
+            <p>
+                <?= Yii::t('ThiscoveryTranslateModule.base', 'Use the Export / Import tab to download or upload translation JSON (store, memory, terminology, optional Forms overlays). The same transfer is available on the CLI. Usage logs and secret settings are never included.') ?>
+                <a href="<?= Html::encode(Url::to(['/thiscovery-translate/admin/transfer'])) ?>">
+                    <?= Yii::t('ThiscoveryTranslateModule.base', 'Open Export / Import') ?>
+                </a>
+            </p>
+
             <h3><?= Yii::t('ThiscoveryTranslateModule.base', 'Quality tools') ?></h3>
             <ul>
                 <li><?= Yii::t('ThiscoveryTranslateModule.base', 'Terminology — preferred terms and do-not-translate phrases.') ?></li>

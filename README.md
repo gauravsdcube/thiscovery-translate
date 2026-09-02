@@ -39,6 +39,8 @@ php protected/yii thiscovery-translate/import/data /tmp/tt-export.json --setting
 
 Default export path: `@runtime/thiscovery-translate-export-YYYYMMDD-HHMMSS.json`.
 
+Admins can also use **Administration → Modules → Thiscovery Translate → Export / Import** (`/thiscovery-translate/admin/transfer`).
+
 **Caveat:** object-field rows key on `object_id` — IDs must match on the target instance. Translation memory reuses by `source_hash` and is safe to share across instances even when object IDs differ.
 
 ## License

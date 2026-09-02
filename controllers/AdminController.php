@@ -15,11 +15,14 @@ use humhub\modules\thiscoveryTranslate\models\TranslationMemoryEntry;
 use humhub\modules\thiscoveryTranslate\models\TranslationTerminology;
 use humhub\modules\thiscoveryTranslate\models\TranslationUsage;
 use humhub\modules\thiscoveryTranslate\services\AmazonTranslateProvider;
+use humhub\modules\thiscoveryTranslate\services\TranslationTransferService;
 use humhub\modules\thiscoveryTranslate\services\ContentProtector;
 use humhub\modules\thiscoveryTranslate\services\CostTracker;
 use humhub\modules\thiscoveryTranslate\services\LocaleMap;
 use Yii;
 use yii\data\ActiveDataProvider;
+use yii\web\Response;
+use yii\web\UploadedFile;
 
 class AdminController extends Controller
 {
@@ -382,4 +385,68 @@ class AdminController extends Controller
         $this->view->success(Yii::t('ThiscoveryTranslateModule.base', 'Queued regeneration of stale (unlocked) translations.'));
         return $this->redirect(['maintenance']);
     }
+
+    public function actionTransfer()
+    {
+        return $this->render('transfer', ['activeTab' => 'transfer']);
+    }
+
+    public function actionExport()
+    {
+        $includeForms = (string)Yii::$app->request->get('forms', Yii::$app->request->post('forms', '')) === '1';
+        $service = new TranslationTransferService();
+        try {
+            $json = $service->exportJson($includeForms);
+        } catch (\Throwable $e) {
+            $this->view->error(Yii::t('ThiscoveryTranslateModule.base', 'Export failed: {error}', [
+                'error' => $e->getMessage(),
+            ]));
+            return $this->redirect(['transfer']);
+        }
+
+        $filename = 'thiscovery-translate-export-' . date('Ymd-His') . '.json';
+        Yii::$app->response->format = Response::FORMAT_RAW;
+        Yii::$app->response->headers->set('Content-Type', 'application/json; charset=UTF-8');
+        Yii::$app->response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        Yii::$app->response->headers->set('Content-Length', (string)strlen($json));
+        return $json;
+    }
+
+    public function actionImport()
+    {
+        $this->forcePostRequest();
+        $file = UploadedFile::getInstanceByName('importFile');
+        if ($file === null || $file->error !== UPLOAD_ERR_OK) {
+            $this->view->error(Yii::t('ThiscoveryTranslateModule.base', 'Please upload a valid JSON file.'));
+            return $this->redirect(['transfer']);
+        }
+
+        $raw = @file_get_contents($file->tempName);
+        if ($raw === false || $raw === '') {
+            $this->view->error(Yii::t('ThiscoveryTranslateModule.base', 'Could not read uploaded file.'));
+            return $this->redirect(['transfer']);
+        }
+
+        $mergeSettings = (string)Yii::$app->request->post('merge_settings', '') === '1';
+        $service = new TranslationTransferService();
+        try {
+            $counts = $service->importJson($raw, $mergeSettings);
+        } catch (\Throwable $e) {
+            $this->view->error(Yii::t('ThiscoveryTranslateModule.base', 'Import failed: {error}', [
+                'error' => $e->getMessage(),
+            ]));
+            return $this->redirect(['transfer']);
+        }
+
+        $parts = [];
+        foreach ($counts as $k => $n) {
+            $parts[] = $k . '=' . $n;
+        }
+        $this->view->success(Yii::t('ThiscoveryTranslateModule.base', 'Import completed: {counts}', [
+            'counts' => implode(', ', $parts),
+        ]));
+        return $this->redirect(['transfer']);
+    }
+
+
 }
