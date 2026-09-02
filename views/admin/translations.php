@@ -1,0 +1,64 @@
+<?php
+/**
+ * Admin shell wrapper added for left-nav + tabs.
+ */
+use humhub\modules\thiscoveryTranslate\assets\TranslateAsset;
+use yii\helpers\Html as TtHtml;
+use yii\helpers\Url as TtUrl;
+TranslateAsset::register($this);
+$activeTab = $activeTab ?? 'translations';
+?>
+<div class="panel panel-default tt-admin">
+    <div class="panel-heading">
+        <strong>Thiscovery Translate</strong> — Translations
+        <span class="pull-right">
+            <a href="<?= TtHtml::encode(TtUrl::to(['/thiscovery-translate/admin/help'])) ?>">
+                <i class="fa fa-question-circle" aria-hidden="true"></i>
+                <?= Yii::t('ThiscoveryTranslateModule.base', 'Help') ?>
+            </a>
+        </span>
+    </div>
+    <div class="panel-body">
+        <?= $this->render('_tabs', ['activeTab' => $activeTab]) ?>
+
+<?php
+
+use humhub\helpers\Html;
+use yii\grid\GridView;
+use yii\helpers\Url;
+
+/** @var \yii\data\ActiveDataProvider $provider */
+?>
+<?= GridView::widget([
+    'dataProvider' => $provider,
+    'columns' => [
+        'object_type',
+        'object_id',
+        'field',
+        'source_language',
+        'target_language',
+        [
+            'attribute' => 'source_text',
+            'value' => static fn($m) => mb_strimwidth((string)$m->source_text, 0, 60, '…'),
+        ],
+        [
+            'attribute' => 'translated_text',
+            'format' => 'raw',
+            'value' => static function ($m) {
+                return Html::beginForm(Url::to(['translation-lock', 'id' => $m->id]), 'post')
+                    . Html::textarea('translated_text', $m->translated_text, ['rows' => 2, 'class' => 'form-control'])
+                    . Html::submitButton(Yii::t('ThiscoveryTranslateModule.base', 'Lock'), ['class' => 'btn btn-xs btn-primary mt-1'])
+                    . Html::endForm();
+            },
+        ],
+        'translation_method',
+        'translation_status',
+        [
+            'attribute' => 'is_locked',
+            'value' => static fn($m) => $m->is_locked ? '✓' : '',
+        ],
+    ],
+]) ?>
+
+    </div>
+</div>

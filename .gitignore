@@ -1,0 +1,22 @@
+# Published HumHub asset copies
+resources/assets/
+*.pub
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Local / runtime / secrets
+/runtime/
+vendor/
+*.log
+.env
+.env.*
+*.local.php
+secrets/
+*.pem
+*.key

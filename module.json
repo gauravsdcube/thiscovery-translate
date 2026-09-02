@@ -1,0 +1,21 @@
+{
+  "id": "thiscovery-translate",
+  "name": "Thiscovery Translate",
+  "description": "Semantic Amazon Translate with persistent store, translation memory, Forms pre-translation, and cost controls (eu-west-2 IAM).",
+  "keywords": ["thiscovery", "translate", "i18n", "amazon", "aws", "language", "forms"],
+  "version": "2.0.0",
+  "humhub": {
+    "minVersion": "1.18"
+  },
+  "authors": [
+    {
+      "name": "D Cube Consulting",
+      "email": "info@dcubeconsulting.co.uk",
+      "homepage": "https://dcubeconsulting.co.uk",
+      "role": "Copyright holder / Developer"
+    }
+  ],
+  "homepage": "https://dcubeconsulting.co.uk",
+  "license": "AGPL-3.0-or-later",
+  "copyright": "Copyright (c) 2026 D Cube Consulting. All rights reserved."
+}
