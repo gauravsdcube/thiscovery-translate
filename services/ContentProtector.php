@@ -13,6 +13,10 @@ namespace humhub\modules\thiscoveryTranslate\services;
  * Uses empty <span translate="no" data-tth="N"></span> markers (HTML format).
  * Amazon leaves translate="no" spans alone; restore swaps them back from the map.
  * Legacy ZZTT…ZZ tokens are still restored when present in the map.
+ *
+ * During protect(), internal \x00TTH{n}\x00 markers are used so the HTML-tag
+ * pass cannot re-wrap newly emitted protector spans; they are converted to
+ * data-tth spans at the end of protect().
  */
 class ContentProtector
 {
@@ -40,7 +44,10 @@ class ContentProtector
         $text = $this->protectPattern($text, '/@[a-zA-Z0-9_.\-]+/');
         $text = $this->protectPattern($text, '/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/');
         $text = $this->protectPattern($text, '/<\/?[a-zA-Z][^>]*>/');
-        return $text;
+        // Emit HTML markers only after all passes so spans are not re-tokenized.
+        return preg_replace_callback('/\x00TTH(\d+)\x00/', static function ($m) {
+            return '<span translate="no" data-tth="' . $m[1] . '"></span>';
+        }, $text) ?? $text;
     }
 
     public function hasTokens(): bool
@@ -100,7 +107,9 @@ class ContentProtector
                 $text
             ) ?? $text;
         }
-        return $text;
+        return preg_replace_callback('/\x00TTH(\d+)\x00/', static function ($m) {
+            return '<span translate="no" data-tth="' . $m[1] . '"></span>';
+        }, $text) ?? $text;
     }
 
     private function protectPattern(string $text, string $pattern): string
@@ -114,7 +123,7 @@ class ContentProtector
     {
         $id = (string)$this->seq++;
         $this->map[$id] = $original;
-        // Empty span — Amazon HTML mode keeps translate="no"; restore uses the map.
-        return '<span translate="no" data-tth="' . $id . '"></span>';
+        // Internal marker during protect(); converted to HTML span at end.
+        return "\x00TTH{$id}\x00";
     }
 }
