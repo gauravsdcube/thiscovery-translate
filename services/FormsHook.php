@@ -78,11 +78,70 @@ class FormsHook
         $message = Yii::t(
             'ThiscoveryTranslateModule.base',
             'Translations incomplete for: {langs}',
-            ['langs' => implode(', ', $incomplete)]
+            ['langs' => self::languageList($incomplete)]
         );
         if ($settings->formsPublishMode === 'block' && (int)$form->status === CustomForm::STATUS_OPEN) {
             return ['ok' => false, 'incomplete' => $incomplete, 'message' => $message];
         }
         return ['ok' => true, 'incomplete' => $incomplete, 'message' => $message];
+    }
+
+    /**
+     * After a studio save: a language with no translation yet is queued, not reported as incomplete.
+     * An open form still warns, because people can already switch to that language.
+     *
+     * @return array{level:string, message:string, block:bool}|null
+     */
+    public static function noticeAfterSave(CustomForm $form): ?array
+    {
+        $queued = self::queueFormTranslation((int)$form->id);
+        $pub = self::checkPublishReady($form);
+        if (empty($pub['message'])) {
+            return null;
+        }
+        $svc = class_exists(FormsTranslationService::class) ? new FormsTranslationService() : null;
+        $started = true;
+        foreach ($pub['incomplete'] as $lang) {
+            if ($svc && $svc->completeness($form, (string)$lang) > 0) {
+                $started = false;
+                break;
+            }
+        }
+        if ($queued && $started && (int)$form->status !== CustomForm::STATUS_OPEN) {
+            return [
+                'level' => 'info',
+                'block' => false,
+                'message' => Yii::t(
+                    'ThiscoveryTranslateModule.base',
+                    'Translation queued for {langs}. It appears on the Translations tab when it is ready.',
+                    ['langs' => self::languageList($pub['incomplete'])]
+                ),
+            ];
+        }
+        if (!$pub['ok']) {
+            return [
+                'level' => 'error',
+                'block' => true,
+                'message' => $pub['message'] . ' ' . Yii::t('ThiscoveryFormsModule.base', 'Form kept as draft until translations are ready.'),
+            ];
+        }
+        return [
+            'level' => 'warning',
+            'block' => false,
+            'message' => $pub['message'],
+        ];
+    }
+
+    /**
+     * @param string[] $codes
+     */
+    private static function languageList(array $codes): string
+    {
+        $labels = class_exists(FormsTranslationService::class) ? FormsTranslationService::languageLabels() : [];
+        $names = [];
+        foreach ($codes as $code) {
+            $names[] = $labels[$code] ?? $code;
+        }
+        return implode(', ', $names);
     }
 }

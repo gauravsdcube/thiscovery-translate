@@ -74,6 +74,11 @@ class FormTranslateAdapter
                 $stats['skipped']++;
                 continue;
             }
+            if ($field === 'thank_you_content'
+                && \humhub\modules\thiscoveryForms\services\ParticipantMessages::isLocked((int)$form->id, $target, 'author.thank_you')) {
+                $stats['skipped']++;
+                continue;
+            }
             try {
                 $translated = $this->service->getTranslation(
                     'form',
@@ -113,6 +118,9 @@ class FormTranslateAdapter
 
         // Keep fill-page language switcher in sync with generated overlays.
         self::ensureFormLanguageEnabled($form, $target);
+        if (class_exists(\humhub\modules\thiscoveryForms\services\ParticipantMessages::class)) {
+            \humhub\modules\thiscoveryForms\services\ParticipantMessages::generate($form, $source, $target, $this->service);
+        }
 
         return $stats;
     }

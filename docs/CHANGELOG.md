@@ -2,6 +2,11 @@
 
 All notable changes to this module are documented in this file.
 
+## 2.1.3 (October 5, 2026)
+
+- Forms: generating a language also translates the form’s messages, endings, and attached email templates. A locked thank-you line is left as written.
+- Enabling a language on a draft form reports that translation is queued, and names the language, once the form is saved.
+
 ## 2.1.2 (September 2, 2026)
 
 - Enh: Admin Export / Import UI (`/thiscovery-translate/admin/transfer`) for JSON download/upload

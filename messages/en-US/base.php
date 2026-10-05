@@ -38,6 +38,7 @@ return [
     'Budgets' => 'Budgets',
     'That language is not available.' => 'That language is not available.',
     'Translations incomplete for: {langs}' => 'Translations incomplete for: {langs}',
+    'Translation queued for {langs}. It appears on the Translations tab when it is ready.' => 'Translation queued for {langs}. It appears on the Translations tab when it is ready.',
     'Terminology saved.' => 'Terminology saved.',
     'Terminology deleted.' => 'Terminology deleted.',
     'Translation memory entry verified.' => 'Translation memory entry verified.',
